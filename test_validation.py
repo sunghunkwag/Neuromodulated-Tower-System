@@ -1,4 +1,4 @@
-test_validation.py#!/usr/bin/env python3
+#!/usr/bin/env python3
 """PyTorch Validation Test for Neuromodulated Tower System.
 
 This script validates the 5-tower neuromodulated system implementation.
@@ -173,10 +173,95 @@ def test_batch_processing(system, device):
         sys.exit(1)
 
 
+def test_numerical_stability(system, device):
+    """Test 8: Numerical stability under extreme inputs."""
+    print_header("TEST 8: Numerical Stability")
+    
+    try:
+        # Test 1: Very small inputs
+        small_state = torch.randn(1, 256, device=device) * 1e-6
+        action_small, debug_small = system(small_state)
+        assert not torch.isnan(action_small).any(), "NaN with small inputs"
+        assert not torch.isinf(action_small).any(), "Inf with small inputs"
+        print(f"  Small input (1e-6): ✓")
+        
+        # Test 2: Large inputs
+        large_state = torch.randn(1, 256, device=device) * 1e3
+        action_large, debug_large = system(large_state)
+        assert not torch.isnan(action_large).any(), "NaN with large inputs"
+        assert not torch.isinf(action_large).any(), "Inf with large inputs"
+        print(f"  Large input (1e3): ✓")
+        
+        # Test 3: Zero input
+        zero_state = torch.zeros(1, 256, device=device)
+        action_zero, debug_zero = system(zero_state)
+        assert not torch.isnan(action_zero).any(), "NaN with zero input"
+        print(f"  Zero input: ✓")
+        
+        print("✓ Numerical stability verified")
+    
+    except Exception as e:
+        print(f"✗ FAILED: {e}")
+        sys.exit(1)
+
+
+def test_hormone_modulation(system, device):
+    """Test 9: Hormone modulation effect on NT gates."""
+    print_header("TEST 9: Hormone-NT Gate Interaction")
+    
+    try:
+        # Run multiple forward passes
+        states = [torch.randn(1, 256, device=device) for _ in range(5)]
+        hormone_levels = []
+        nt_gate_outputs = []
+        
+        for state in states:
+            with torch.no_grad():
+                _, debug = system(state)
+            hormone_levels.append(debug['hormones'])
+            nt_gate_outputs.append(debug['nt_weights'])
+        
+        # Check that NT weights vary with different hormone levels
+        net_weights_list = [nts['NET'] for nts in nt_gate_outputs]
+        net_weights_stack = torch.stack(net_weights_list)
+        variance = net_weights_stack.var(dim=0).mean()
+        
+        assert variance > 1e-6, "NT weights not varying (might indicate no modulation)"
+        print(f"  NET weight variance: {variance:.6f}")
+        print("✓ Hormone modulation active")
+    
+    except Exception as e:
+        print(f"✗ FAILED: {e}")
+        sys.exit(1)
+
+
+def test_tower_independence(system, device):
+    """Test 10: Tower independence verification."""
+    print_header("TEST 10: Tower Independence")
+    
+    try:
+        state = torch.randn(1, 256, device=device)
+        _, debug = system(state)
+        tower_outputs = debug['tower_outputs']
+        
+        # Check that tower outputs are different
+        for i in range(len(tower_outputs) - 1):
+            for j in range(i + 1, len(tower_outputs)):
+                diff = (tower_outputs[i] - tower_outputs[j]).abs().mean()
+                assert diff > 1e-3, f"Tower {i+1} and {j+1} outputs too similar: {diff}"
+        
+        print(f"  Tower output diversity verified")
+        print("✓ All towers processing independently")
+    
+    except Exception as e:
+        print(f"✗ FAILED: {e}")
+        sys.exit(1)
+
+
 def main():
     """Run all tests."""
     print("\n" + "#"*70)
-    print("#  Neuromodulated-Tower-System: PyTorch Validation Suite")
+    print("#  Neuromodulated-Tower-System: Enhanced Validation Suite")
     print("#"*70)
     
     system, device = test_system_init()
@@ -186,6 +271,9 @@ def main():
     test_nt_gates(debug)
     test_gradients(system, device)
     test_batch_processing(system, device)
+    test_numerical_stability(system, device)
+    test_hormone_modulation(system, device)
+    test_tower_independence(system, device)
     
     print_header("ALL TESTS PASSED ✅")
     print(f"Device used: {device}")
