@@ -1,221 +1,35 @@
-"""Neuromodulated Tower System - Core Architecture
+"""Neuromodulated Tower System - Main System Architecture.
 
-Implements a 5-tower parallel processing architecture with neurotransmitter-gated
-integration based on Hansen et al. (2024) brainstem-cortex connectivity findings.
+Refactored to use modular tower components from src.towers subpackage.
 """
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple
 
-
-class TowerBase(nn.Module):
-    """Base class for all processing towers."""
-    
-    def __init__(self, input_dim: int, hidden_dim: int, latent_dim: int):
-        super().__init__()
-        self.input_dim = input_dim
-        self.hidden_dim = hidden_dim
-        self.latent_dim = latent_dim
-        
-        self.encoder = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU()
-        )
-        self.latent = nn.Linear(hidden_dim, latent_dim)
-        
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        hidden = self.encoder(x)
-        return self.latent(hidden)
-
-
-class Tower1SocialMemory(TowerBase):
-    """Tower 1: Autobiographical memory and social cognition."""
-    
-    def __init__(self, input_dim: int, hidden_dim: int = 128, latent_dim: int = 128):
-        super().__init__(input_dim, hidden_dim, latent_dim)
-        self.name = "Social-Memory"
-        
-        # EWC (Elastic Weight Consolidation) for long-term memory
-        self.register_buffer('ewc_params', None)
-        self.register_buffer('ewc_fisher', None)
-        
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return super().forward(x)
-
-
-class Tower2WorkingMemory(TowerBase):
-    """Tower 2: Working memory and cognitive control."""
-    
-    def __init__(self, input_dim: int, hidden_dim: int = 128, latent_dim: int = 128):
-        super().__init__(input_dim, hidden_dim, latent_dim)
-        self.name = "Working-Memory"
-        
-        # Meta-learning capability
-        self.meta_learner = nn.Sequential(
-            nn.Linear(latent_dim, 64),
-            nn.ReLU(),
-            nn.Linear(64, latent_dim)
-        )
-    
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        latent = super().forward(x)
-        # Meta-learning attention
-        meta_signal = torch.sigmoid(self.meta_learner(latent))
-        return latent * meta_signal
-
-
-class Tower3Affective(nn.Module):
-    """Tower 3: Affective processing with 3-hormone neuromodulation system.
-    
-    Models: Dopamine, Serotonin, Cortisol
-    """
-    
-    def __init__(self, input_dim: int, hidden_dim: int = 128, latent_dim: int = 128):
-        super().__init__()
-        self.name = "Affective"
-        self.latent_dim = latent_dim
-        
-        # Emotion encoder
-        self.emotion_encoder = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, latent_dim)
-        )
-        
-        # Hormone generation (3-dim)
-        self.dopamine_head = nn.Linear(latent_dim, 1)
-        self.serotonin_head = nn.Linear(latent_dim, 1)
-        self.cortisol_head = nn.Linear(latent_dim, 1)
-        
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
-        latent = self.emotion_encoder(x)
-        
-        # Generate hormone levels [0, 1]
-        dopamine = torch.sigmoid(self.dopamine_head(latent))
-        serotonin = torch.sigmoid(self.serotonin_head(latent))
-        cortisol = torch.sigmoid(self.cortisol_head(latent))
-        
-        hormones = {
-            'dopamine': dopamine.squeeze(-1),
-            'serotonin': serotonin.squeeze(-1),
-            'cortisol': cortisol.squeeze(-1)
-        }
-        
-        return latent, hormones
-
-
-class Tower4Sensorimotor(TowerBase):
-    """Tower 4: Sensorimotor integration."""
-    
-    def __init__(self, input_dim: int, hidden_dim: int = 128, latent_dim: int = 128):
-        super().__init__(input_dim, hidden_dim, latent_dim)
-        self.name = "Sensorimotor"
-        
-        # Dual-head for perception processing
-        self.perception_head = nn.Linear(latent_dim, latent_dim)
-        
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        latent = super().forward(x)
-        return torch.relu(self.perception_head(latent))
-
-
-class Tower5MotorCoordination(TowerBase):
-    """Tower 5: Motor coordination and behavioral sequencing."""
-    
-    def __init__(self, input_dim: int, hidden_dim: int = 128, latent_dim: int = 128):
-        super().__init__(input_dim, hidden_dim, latent_dim)
-        self.name = "Motor-Coordination"
-        
-        # Sequence planner
-        self.sequence_planner = nn.Linear(latent_dim, latent_dim * 2)
-        
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        latent = super().forward(x)
-        sequence = self.sequence_planner(latent)
-        return torch.tanh(sequence[:, :self.latent_dim])
-
-
-class NeuromodulatorGate(nn.Module):
-    """18-receptor neurotransmitter-gated integration layer.
-    
-    Based on Hansen et al. (2024) PET imaging findings.
-    """
-    
-    def __init__(self, latent_dim: int = 128, num_towers: int = 5):
-        super().__init__()
-        self.latent_dim = latent_dim
-        self.num_towers = num_towers
-        
-        # 3 main NT pathways (NET, DAT, 5-HTT) -> 5 towers
-        self.NET_gate = nn.Linear(latent_dim, num_towers)  # Norepinephrine
-        self.DAT_gate = nn.Linear(latent_dim, num_towers)  # Dopamine
-        self.HTT_gate = nn.Linear(latent_dim, num_towers)  # Serotonin
-        
-        # Context encoder
-        self.context_encoder = nn.Sequential(
-            nn.Linear(latent_dim * num_towers, latent_dim),
-            nn.ReLU(),
-            nn.Linear(latent_dim, latent_dim)
-        )
-        
-    def forward(self, 
-                tower_outputs: List[torch.Tensor],
-                hormones: Dict[str, torch.Tensor]
-    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
-        """Integrate tower outputs with NT gating.
-        
-        Args:
-            tower_outputs: List of [batch, latent_dim] tensors
-            hormones: Dict of hormone levels from Tower 3
-            
-        Returns:
-            integrated: [batch, latent_dim] gated output
-            nt_weights: Dict of NT gating weights
-        """
-        batch_size = tower_outputs[0].shape[0]
-        
-        # Concatenate all tower outputs
-        concat = torch.cat(tower_outputs, dim=-1)  # [batch, latent_dim * 5]
-        context = self.context_encoder(concat)
-        
-        # Compute NT gate weights
-        net_weights = F.softmax(self.NET_gate(context), dim=-1)
-        dat_weights = F.softmax(self.DAT_gate(context), dim=-1)
-        htt_weights = F.softmax(self.HTT_gate(context), dim=-1)
-        
-        # Apply modulation from hormones
-        dopamine_mod = hormones['dopamine'].unsqueeze(-1)  # [batch, 1]
-        serotonin_mod = hormones['serotonin'].unsqueeze(-1)
-        cortisol_mod = hormones['cortisol'].unsqueeze(-1)
-        
-        # Weighted integration
-        net_contribution = (net_weights * dopamine_mod).unsqueeze(-1)  # [batch, 5, 1]
-        dat_contribution = (dat_weights * cortisol_mod).unsqueeze(-1)
-        htt_contribution = (htt_weights * serotonin_mod).unsqueeze(-1)
-        
-        # Combine contributions
-        total_weights = (net_contribution + dat_contribution + htt_contribution) / 3.0
-        
-        # Apply to tower outputs
-        integrated = torch.zeros_like(tower_outputs[0])
-        for i, tower_out in enumerate(tower_outputs):
-            integrated = integrated + total_weights[:, i, 0].unsqueeze(-1) * tower_out
-        
-        nt_weights = {
-            'NET': net_weights,
-            'DAT': dat_weights,
-            '5HTT': htt_weights
-        }
-        
-        return integrated, nt_weights
+from .towers import (
+    Tower1SocialMemory,
+    Tower2WorkingMemory,
+    Tower3Affective,
+    Tower4Sensorimotor,
+    Tower5MotorCoordination
+)
+from .neuromodulator_gate import NeuromodulatorGate
 
 
 class FiveTowerSystem(nn.Module):
-    """Main 5-Tower Neuromodulated System."""
+    """Main 5-Tower Neuromodulated System.
+    
+    Architecture:
+    - 5 specialized processing towers (parallel)
+    - NT-gated integration layer (hormone-modulated)
+    - Cortical reasoning module (action selection)
+    
+    Based on:
+    - Hansen et al. (2024): Brainstem-cortex connectivity
+    - HRM architecture: H-module + L-module dual processing
+    - Dual-process theory: System 1 (towers) + System 2 (cortex)
+    """
     
     def __init__(self, 
                  input_dim: int = 256,
@@ -226,7 +40,9 @@ class FiveTowerSystem(nn.Module):
         super().__init__()
         
         self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
         self.latent_dim = latent_dim
+        self.output_dim = output_dim
         self.device_str = device
         
         # Initialize all 5 towers
@@ -236,15 +52,17 @@ class FiveTowerSystem(nn.Module):
         self.tower4 = Tower4Sensorimotor(input_dim, hidden_dim, latent_dim).to(device)
         self.tower5 = Tower5MotorCoordination(input_dim, hidden_dim, latent_dim).to(device)
         
-        # NT Gate
+        # NT-Gating Layer
         self.nt_gate = NeuromodulatorGate(latent_dim, num_towers=5).to(device)
         
         # Cortical reasoning (H-module style)
         self.cortex = nn.Sequential(
             nn.Linear(latent_dim, hidden_dim),
             nn.ReLU(),
+            nn.Dropout(0.1),
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
+            nn.Dropout(0.1),
             nn.Linear(hidden_dim, output_dim),
             nn.Tanh()  # Action output [-1, 1]
         ).to(device)
@@ -257,7 +75,11 @@ class FiveTowerSystem(nn.Module):
             
         Returns:
             action: [batch, output_dim] action output
-            debug_info: Dict with tower outputs and NT weights
+            debug_info: Dict containing:
+                - tower_outputs: List of tower latent states
+                - hormones: Dict of hormone levels
+                - nt_weights: Dict of NT gating weights
+                - integrated: NT-gated unified representation
         """
         # Move to device
         state = state.to(self.device_str)
@@ -285,18 +107,47 @@ class FiveTowerSystem(nn.Module):
         }
         
         return action, debug_info
+    
+    def get_tower_names(self):
+        """Get names of all towers."""
+        return [
+            self.tower1.name,
+            self.tower2.name,
+            self.tower3.name,
+            self.tower4.name,
+            self.tower5.name
+        ]
+    
+    def inspect_nt_routing(self, state: torch.Tensor) -> Dict:
+        """Inspect NT routing patterns for a given state."""
+        with torch.no_grad():
+            _, debug_info = self.forward(state)
+        
+        return {
+            'tower_names': self.get_tower_names(),
+            'nt_weights': debug_info['nt_weights'],
+            'hormones': debug_info['hormones']
+        }
 
 
 if __name__ == '__main__':
     # Quick test
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f"Testing FiveTowerSystem on {device}")
+    
     system = FiveTowerSystem(input_dim=256, output_dim=4, device=device)
     
     # Random input
     state = torch.randn(2, 256, device=device)  # Batch size 2
     action, debug = system(state)
     
-    print(f"Action shape: {action.shape}")
-    print(f"Action: {action}")
-    print(f"Hormones: {debug['hormones']}")
-    print(f"Integration successful!")
+    print(f"\nAction shape: {action.shape}")
+    print(f"Action range: [{action.min().item():.4f}, {action.max().item():.4f}]")
+    print(f"\nHormones:")
+    for name, val in debug['hormones'].items():
+        print(f"  {name}: {val.mean().item():.4f}")
+    print(f"\nNT routing (combined):")
+    combined = debug['nt_weights']['combined']
+    for i, tower_name in enumerate(system.get_tower_names()):
+        print(f"  {tower_name}: {combined[0, i].item():.4f}")
+    print("\n✓ Integration successful!")
