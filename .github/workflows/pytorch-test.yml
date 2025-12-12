@@ -46,12 +46,4 @@ jobs:
     
     - name: Quick inference test
       run: |
-        python -c "
-import torch
-from src.system import FiveTowerSystem
-device = 'cpu'
-system = FiveTowerSystem(input_dim=256, output_dim=4, device=device)
-state = torch.randn(1, 256)
-action, debug = system(state)
-print(f'✓ Inference test passed: action shape {action.shape}')
-"
+        python -c "import torch; from src.system import FiveTowerSystem; device = 'cpu'; system = FiveTowerSystem(input_dim=256, output_dim=4, device=device); state = torch.randn(1, 256); action, debug = system(state); print(f'✓ Inference test passed: action shape {action.shape}')"
