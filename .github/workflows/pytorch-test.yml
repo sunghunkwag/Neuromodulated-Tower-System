@@ -45,8 +45,4 @@ jobs:
         python -c "from src.system import FiveTowerSystem; print('✓ System import successful')"
     
     - name: Quick inference test
-              n: python -m pytest test_validation.py -v
-state = torch.randn(1, 256)
-action, debug = system(state)
-print(f'✓ Inference test passed: action shape {action.shape}')
-"
+                      run: python -m pytest test_validation.py -v
