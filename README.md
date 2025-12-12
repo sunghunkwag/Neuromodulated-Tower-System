@@ -2,7 +2,7 @@
 
 > **Biologically-Inspired Multi-Tower Architecture with Neuromodulator-Gated Integration**
 
-A PyTorch-based implementation of a recursive self-improvement system inspired by Hansen et al.'s (2024) brainstem-cortex connectivity findings. This architecture implements 5 specialized processing towers with dynamic neurotransmitter-gated integration.
+A PyTorch-based implementation of a recursive self-improvement system inspired by Hansen et al.'s (2024) brainstem-cortex connectivity findings. The current iteration emphasizes stability and interpretability through normalized encoders, hormone-banded affective signals, and receptor-aware routing in the neuromodulator gate.
 
 ## Architecture Overview
 
@@ -20,8 +20,9 @@ A PyTorch-based implementation of a recursive self-improvement system inspired b
 
 **Tower 3: Affective Processing**
 - 3-hormone neuromodulatory system (Dopamine, Serotonin, Cortisol)
-- Emotional state representation
-- Intrinsic motivation generation
+- Emotional state representation with LayerNorm
+- Intrinsic drive head that keeps affective latent expressive and gradients healthy
+- Clamped hormone bands to avoid saturation
 
 **Tower 4: Sensorimotor Integration**
 - Perception (vision, proprioception)
@@ -38,6 +39,8 @@ A PyTorch-based implementation of a recursive self-improvement system inspired b
 Based on PET imaging findings from Hansen et al. (2024):
 - **18-receptor dynamic routing** system
 - **3 main neurotransmitter pathways**: NET (norepinephrine), DAT (dopamine), 5-HTT (serotonin)
+- **Learnable receptor sensitivities** that scale pathway influence
+- **Baseline router** to stabilize routing under noisy hormones
 - **Context-dependent modulation**: Tower outputs weighted by current hormonal state and task context
 - **Biologically-validated connectivity patterns**: Unimodal ↔ Transmodal hierarchy
 
@@ -92,9 +95,10 @@ print(f"NT gate weights: {nt_weights}")
 Neuromodulated-Tower-System/
 ├── README.md
 ├── requirements.txt
-├── setup.py
 ├── src/
 │   ├── __init__.py
+│   ├── neuromodulator_gate.py
+│   ├── system.py
 │   ├── towers/
 │   │   ├── __init__.py
 │   │   ├── tower_base.py
@@ -103,13 +107,8 @@ Neuromodulated-Tower-System/
 │   │   ├── tower3_affective.py
 │   │   ├── tower4_sensorimotor.py
 │   │   └── tower5_motor_coordination.py
-│   ├── neuromodulator_gate.py
-│   ├── system.py
 │   └── training.py
-├── tests/
-│   └── test_system.py
-└── notebooks/
-    └── demo.ipynb
+└── test_validation.py
 ```
 
 ## Key Papers & References
@@ -147,8 +146,10 @@ for epoch in range(100):
 ### Testing
 
 ```bash
-python -m pytest tests/test_system.py -v
+python -m pytest -q
 ```
+
+The default test runner executes `test_validation.py` to ensure the towers, neuromodulator gate, and integration pipeline produce valid shapes and stable hormone-aware routing.
 
 ## Contributing
 

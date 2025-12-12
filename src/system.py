@@ -54,6 +54,12 @@ class FiveTowerSystem(nn.Module):
         
         # NT-Gating Layer
         self.nt_gate = NeuromodulatorGate(latent_dim, num_towers=5).to(device)
+
+        # Normalize integrated representation before cortical planning
+        self.integration_norm = nn.LayerNorm(latent_dim)
+
+        # Hormone-informed bias to let affective state steer cortical reasoning
+        self.hormone_to_context = nn.Linear(3, latent_dim)
         
         # Cortical reasoning (H-module style)
         self.cortex = nn.Sequential(
@@ -95,6 +101,16 @@ class FiveTowerSystem(nn.Module):
         
         # Phase 2: NT-Gated Integration
         integrated, nt_weights = self.nt_gate(tower_outputs, hormones)
+
+        # Modulate integrated state using hormone-informed contextual prior
+        hormone_vector = torch.stack([
+            hormones['dopamine'],
+            hormones['serotonin'],
+            hormones['cortisol']
+        ], dim=-1)
+        integrated = self.integration_norm(
+            integrated + 0.2 * self.hormone_to_context(hormone_vector)
+        )
         
         # Phase 3: Cortical Reasoning (Action selection)
         action = self.cortex(integrated)
