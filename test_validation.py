@@ -41,6 +41,16 @@ def run_forward_pass(system, device, batch_size=2):
     return action, debug, state
 
 
+@pytest.fixture(scope="session", autouse=True)
+def configure_determinism():
+    """Set global determinism for repeatable CI runs."""
+    torch.manual_seed(0)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(0)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+
 @pytest.fixture(scope="module")
 def device():
     return 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -58,11 +68,12 @@ def system(device):
 
 
 @pytest.fixture(autouse=True)
-def set_seed():
+def reset_rng():
     """Keep random behavior deterministic across tests."""
     torch.manual_seed(0)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(0)
     yield
-    torch.manual_seed(0)
 
 
 @pytest.fixture
