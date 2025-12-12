@@ -99,8 +99,8 @@ def test_hormones(debug):
         
         for name, val in hormones.items():
             assert 0 <= val.min() and val.max() <= 1, f"{name} out of [0, 1]"
-            print(f"  {name:12s}: {val.item():.4f}")
-        
+                    val_scalar = float(val.mean()) if isinstance(val, torch.Tensor) else float(val)
+                    print(f" {name:12s}: {val_scalar:.4f}")        
         print("✓ 3-hormone system working")
     
     except Exception as e:
