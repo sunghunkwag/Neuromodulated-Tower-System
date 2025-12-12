@@ -44,5 +44,5 @@ jobs:
       run: |
         python -c "from src.system import FiveTowerSystem; print('✓ System import successful')"
     
-    - name: Quick inference test
-                      run: python -m pytest test_validation.py -v
+      - name: Run pytest validation
+        run: python -m pytest test_validation.py -v
