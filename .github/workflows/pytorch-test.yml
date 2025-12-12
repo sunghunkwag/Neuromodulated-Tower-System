@@ -46,7 +46,7 @@ jobs:
     
     - name: Quick inference test
       run: |
-python -m pytest test_validation.py -v
+          python -m pytest test_validation.py -v
 state = torch.randn(1, 256)
 action, debug = system(state)
 print(f'✓ Inference test passed: action shape {action.shape}')
