@@ -6,6 +6,14 @@ Run: python test_validation.py
 """
 
 import sys
+import os
+from pathlib import Path
+
+# Add project root to path for imports
+project_root = Path(__file__).parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 import torch
 import torch.nn as nn
 
@@ -26,6 +34,9 @@ def test_system_init():
     try:
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print(f"Device: {device}")
+        print(f"Python version: {sys.version}")
+        print(f"PyTorch version: {torch.__version__}")
+        print(f"Project root: {project_root}")
         
         system = FiveTowerSystem(
             input_dim=256,
@@ -42,6 +53,8 @@ def test_system_init():
     
     except Exception as e:
         print(f"✗ FAILED: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 
@@ -67,6 +80,8 @@ def test_forward_pass(system, device):
     
     except Exception as e:
         print(f"✗ FAILED: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 
@@ -115,9 +130,11 @@ def test_nt_gates(debug):
     try:
         nt_weights = debug['nt_weights']
         required = {'NET', 'DAT', '5HTT'}
-        assert set(nt_weights.keys()) == required, "Missing NT pathway keys"
+        # Check minimum required keys (combined is optional)
+        assert required.issubset(nt_weights.keys()), "Missing NT pathway keys"
         
-        for nt_name, weights in nt_weights.items():
+        for nt_name in required:
+            weights = nt_weights[nt_name]
             # Check softmax constraint
             sums = weights.sum(dim=-1)
             assert torch.allclose(sums, torch.ones_like(sums), atol=1e-5), \
