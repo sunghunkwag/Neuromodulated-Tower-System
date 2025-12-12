@@ -42,7 +42,6 @@ jobs:
     
     - name: Test system import
       run: |
-        python -c "from src.system import FiveTowerSystem; print('✓ System import successful')"
-    
+          python -c "from src.system import FiveTowerSystem; print('System import successful')"    
       - name: Run pytest validation
         run: python -m pytest test_validation.py -v
