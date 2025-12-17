@@ -44,6 +44,12 @@ Based on PET imaging findings from Hansen et al. (2024):
 - **Context-dependent modulation**: Tower outputs weighted by current hormonal state and task context
 - **Biologically-validated connectivity patterns**: Unimodal ↔ Transmodal hierarchy
 
+### Mirror Tower (Self-Reflective Refinement)
+
+- **EMA reflection state** blends prior refined latents with current integrated signal
+- **Gated residual update** pushes latents toward self-consistent directions while respecting safety floors
+- **Stability-first normalization** keeps the reflection loop numerically well-behaved before cortical reasoning
+
 ### Recursive Self-Improvement Loop
 
 1. **Parallel Tower Processing**: 5 towers process independently
@@ -74,10 +80,11 @@ system = FiveTowerSystem(
 
 # Process input state
 state = torch.randn(1, 256)  # Batch size 1, 256-dim state
-action, nt_weights = system(state)
+action, debug = system(state)
 
 print(f"Action shape: {action.shape}")
-print(f"NT gate weights: {nt_weights}")
+print(f"NT gate weights: {debug['nt_weights']}")
+print(f"Mirror gate range: [{debug['mirror']['gate'].min().item():.4f}, {debug['mirror']['gate'].max().item():.4f}]")
 ```
 
 ## Core Features

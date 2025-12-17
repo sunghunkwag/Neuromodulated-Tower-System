@@ -258,6 +258,28 @@ def test_tower_independence(system, device):
     print("✓ All towers processing independently")
 
 
+def test_mirror_tower(forward_result):
+    """Test 11: Mirror tower self-reflection stability."""
+    print_header("TEST 11: Mirror Tower (Self-Reflection)")
+
+    _, debug, _ = forward_result
+    mirror = debug['mirror']
+    refined = debug['refined']
+    gate = mirror['gate']
+    state = mirror['state']
+
+    assert refined.shape == gate.shape, "Refined output shape mismatch with gate"
+    assert gate.min() >= 0.05, "Gate strength below safety floor"
+    assert gate.max() <= 1.0, "Gate strength above 1"
+    assert torch.isfinite(refined).all(), "Non-finite values in refined latent"
+    assert torch.isfinite(state).all(), "Non-finite values in mirror state"
+    assert (state.abs().sum() > 0), "Mirror state not updating"
+
+    print(f"  Gate range: [{gate.min().item():.4f}, {gate.max().item():.4f}]")
+    print(f"  Mirror state norm: {state.norm().item():.6f}")
+    print("✓ Mirror tower self-reflection stable")
+
+
 def main():
     """Run the validation suite via pytest for parity with CI."""
     print("\n" + "#" * 70)

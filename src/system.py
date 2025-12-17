@@ -12,7 +12,8 @@ from .towers import (
     Tower2WorkingMemory,
     Tower3Affective,
     Tower4Sensorimotor,
-    Tower5MotorCoordination
+    Tower5MotorCoordination,
+    MirrorTower
 )
 from .neuromodulator_gate import NeuromodulatorGate
 
@@ -54,6 +55,9 @@ class FiveTowerSystem(nn.Module):
         
         # NT-Gating Layer
         self.nt_gate = NeuromodulatorGate(latent_dim, num_towers=5).to(device)
+
+        # Self-reflective mirror tower for post-gating refinement
+        self.mirror_tower = MirrorTower(latent_dim).to(device)
 
         # Normalize integrated representation before cortical planning
         self.integration_norm = nn.LayerNorm(latent_dim)
@@ -112,14 +116,17 @@ class FiveTowerSystem(nn.Module):
             integrated + 0.2 * self.hormone_to_context(hormone_vector)
         )
         
-        # Phase 3: Cortical Reasoning (Action selection)
-        action = self.cortex(integrated)
+        # Phase 3: Self-reflection followed by cortical reasoning
+        refined, mirror_debug = self.mirror_tower(integrated)
+        action = self.cortex(refined)
         
         debug_info = {
             'tower_outputs': tower_outputs,
             'hormones': hormones,
             'nt_weights': nt_weights,
-            'integrated': integrated
+            'integrated': integrated,
+            'refined': refined,
+            'mirror': mirror_debug
         }
         
         return action, debug_info
