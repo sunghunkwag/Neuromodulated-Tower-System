@@ -20,10 +20,18 @@ class NeuromodulatorGate(nn.Module):
     - Hormone-modulated gating weights
     """
     
-    def __init__(self, latent_dim: int = 128, num_towers: int = 5):
+    def __init__(
+        self,
+        latent_dim: int = 128,
+        num_towers: int = 5,
+        temperature: float = 1.0,
+        min_pathway_share: float = 0.02,
+    ):
         super().__init__()
         self.latent_dim = latent_dim
         self.num_towers = num_towers
+        self.temperature = temperature
+        self.min_pathway_share = min_pathway_share
 
         # 3 main NT pathways (NET, DAT, 5-HTT) -> 5 towers
         self.NET_gate = nn.Linear(latent_dim, num_towers)  # Norepinephrine
@@ -51,7 +59,7 @@ class NeuromodulatorGate(nn.Module):
     def forward(self,
                 tower_outputs: List[torch.Tensor],
                 hormones: Dict[str, torch.Tensor]
-    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], torch.Tensor]:
         """Integrate tower outputs with NT gating.
         
         Args:
@@ -61,15 +69,17 @@ class NeuromodulatorGate(nn.Module):
         Returns:
             integrated: [batch, latent_dim] gated output
             nt_weights: Dict of NT gating weights for inspection
+            pathway_strength: [batch, 3] aggregate NT contributions per pathway
         """
         # Concatenate all tower outputs -> contextual summary
         concat = torch.cat(tower_outputs, dim=-1)  # [batch, latent_dim * 5]
         context = self.context_norm(self.context_encoder(concat))
 
         # Pathway-specific logits (before hormone scaling)
-        net_logits = self.NET_gate(context)
-        dat_logits = self.DAT_gate(context)
-        htt_logits = self.HTT_gate(context)
+        temperature = max(1e-4, float(self.temperature))
+        net_logits = self.NET_gate(context) / temperature
+        dat_logits = self.DAT_gate(context) / temperature
+        htt_logits = self.HTT_gate(context) / temperature
 
         # Convert to normalized pathway weights
         net_weights = F.softmax(net_logits, dim=-1)  # [batch, num_towers]
@@ -96,6 +106,9 @@ class NeuromodulatorGate(nn.Module):
 
         # Aggregate and normalize for safe integration
         total_weights = (modulated_weights + 0.25 * baseline_weights).sum(dim=1)
+
+        # Prevent any tower from being fully zeroed out to improve gradient flow
+        total_weights = total_weights + self.min_pathway_share
         total_weights = total_weights / (total_weights.sum(dim=-1, keepdim=True) + 1e-6)
 
         # Stack tower outputs for efficient weighted sum: [batch, towers, latent]
@@ -106,7 +119,9 @@ class NeuromodulatorGate(nn.Module):
             'NET': net_weights,
             'DAT': dat_weights,
             '5HTT': htt_weights,
-            'combined': total_weights  # [batch, num_towers]
+            'combined': total_weights,  # [batch, num_towers]
         }
 
-        return integrated, nt_weights
+        pathway_strength = modulated_weights.sum(dim=-1)  # [batch, 3]
+
+        return integrated, nt_weights, pathway_strength
