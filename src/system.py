@@ -32,12 +32,14 @@ class FiveTowerSystem(nn.Module):
     - Dual-process theory: System 1 (towers) + System 2 (cortex)
     """
     
-    def __init__(self, 
+    def __init__(self,
                  input_dim: int = 256,
                  hidden_dim: int = 128,
                  latent_dim: int = 128,
                  output_dim: int = 4,
-                 device: str = 'cpu'):
+                 device: str = 'cpu',
+                 gate_temperature: float = 1.0,
+                 min_pathway_share: float = 0.02):
         super().__init__()
         
         self.input_dim = input_dim
@@ -54,7 +56,12 @@ class FiveTowerSystem(nn.Module):
         self.tower5 = Tower5MotorCoordination(input_dim, hidden_dim, latent_dim).to(device)
         
         # NT-Gating Layer
-        self.nt_gate = NeuromodulatorGate(latent_dim, num_towers=5).to(device)
+        self.nt_gate = NeuromodulatorGate(
+            latent_dim,
+            num_towers=5,
+            temperature=gate_temperature,
+            min_pathway_share=min_pathway_share,
+        ).to(device)
 
         # Self-reflective mirror tower for post-gating refinement
         self.mirror_tower = MirrorTower(latent_dim).to(device)
@@ -104,7 +111,7 @@ class FiveTowerSystem(nn.Module):
         tower_outputs = [t1_out, t2_out, t3_out, t4_out, t5_out]
         
         # Phase 2: NT-Gated Integration
-        integrated, nt_weights = self.nt_gate(tower_outputs, hormones)
+        integrated, nt_weights, pathway_strength = self.nt_gate(tower_outputs, hormones)
 
         # Modulate integrated state using hormone-informed contextual prior
         hormone_vector = torch.stack([
@@ -124,6 +131,7 @@ class FiveTowerSystem(nn.Module):
             'tower_outputs': tower_outputs,
             'hormones': hormones,
             'nt_weights': nt_weights,
+            'nt_pathway_strength': pathway_strength,
             'integrated': integrated,
             'refined': refined,
             'mirror': mirror_debug

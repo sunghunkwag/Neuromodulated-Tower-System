@@ -87,6 +87,17 @@ print(f"NT gate weights: {debug['nt_weights']}")
 print(f"Mirror gate range: [{debug['mirror']['gate'].min().item():.4f}, {debug['mirror']['gate'].max().item():.4f}]")
 ```
 
+The neuromodulator gate supports stability controls for more reliable gradients on small batches:
+
+```python
+system = FiveTowerSystem(
+    latent_dim=128,
+    gate_temperature=0.7,       # softens routing logits to avoid overly sharp tower selection
+    min_pathway_share=0.05,     # guarantees a small weight for each tower to keep signals flowing
+    device='cuda' if torch.cuda.is_available() else 'cpu'
+)
+```
+
 ## Core Features
 
 ✅ **5-Tower Parallel Processing**: Specialized cognitive modules  
@@ -157,6 +168,16 @@ python -m pytest -q
 ```
 
 The default test runner executes `test_validation.py` to ensure the towers, neuromodulator gate, and integration pipeline produce valid shapes and stable hormone-aware routing.
+
+### SCIG (Self-Contracting Improvement Graph) Demo
+
+The repository also includes a standalone `scig_demo.py` script that showcases a recursive improvement loop with adversarial test forging and self-tuning patch policies. To run the demo:
+
+```bash
+python scig_demo.py
+```
+
+The script prints the best discovered expression in its DSL, along with operator statistics and the adaptive focus strength used by the evaluator.
 
 ## Contributing
 
