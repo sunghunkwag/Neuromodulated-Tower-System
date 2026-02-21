@@ -205,12 +205,6 @@ If you use this in research, please cite:
 }
 ```
 
-## Author
 
-Sunghun Kwag - Independent AI Research  
-GitHub: [@sunghunkwag](https://github.com/sunghunkwag)
 
----
 
-**Status**: 🚀 Active Development  
-**Last Updated**: December 2025
